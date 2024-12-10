@@ -1,5 +1,6 @@
 # ComfyUI-IF_MemoAvatar
 Memory-Guided Diffusion for Expressive Talking Video Generation
+![Uploading demo.gif…]()
 
 #ORIGINAL REPO
 **MEMO: Memory-Guided Diffusion for Expressive Talking Video Generation**
