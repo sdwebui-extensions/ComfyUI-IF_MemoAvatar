@@ -40,6 +40,25 @@ This is a ComfyUI implementation of MEMO (Memory-Guided Diffusion for Expressive
 
 ## Installation
 
+git clone the repo to your custom_nodes folder and then 
+```bash
+cd ComfyUI-IF_MemoAvatar
+pip install -r requirements.txt
+```
+I removed xformers from the file because it needs a particular combination of pytorch on windows to work
+
+if you are on linux you can just run 
+```bash
+pip install xformers 
+```
+for windows users if you don't have xformers on your env 
+```bash
+pip show xformers 
+```
+follow this guide to install a good comfyui environment if you don't see any version install the latest following this free guide
+
+https://ko-fi.com/post/Installing-Triton-and-Sage-Attention-Flash-Attenti-P5P8175434
+
 ### Model Files
 The models will automatically download to the following locations in your ComfyUI installation:
 
