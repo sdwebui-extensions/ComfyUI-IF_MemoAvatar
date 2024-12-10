@@ -36,6 +36,7 @@ This is a ComfyUI implementation of MEMO (Memory-Guided Diffusion for Expressive
 - Audio-driven facial animation
 - Emotional expression transfer
 - High-quality video output
+![thorium_XMBCG9kbGn](https://github.com/user-attachments/assets/7d19178f-870c-429b-988e-1335fe1ba8f9)
 
 ## Installation
 
