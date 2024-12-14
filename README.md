@@ -81,6 +81,22 @@ models/emotion2vec/emotion2vec_plus_large/
 Copy the faceanalisys/models models from the folder directly into faceanalisys 
 just until I make sure don't just move then duplicate them cos
 HF will detect empty and download them every time 
+If you don't see a `models.json` or errors out create one yourself this is the content 
+```bash
+{
+  "detection": [
+    "scrfd_10g_bnkps"
+  ],
+  "recognition": [
+    "glintr100"
+  ],
+  "analysis": [
+    "genderage",
+    "2d106det",
+    "1k3d68"
+  ]
+}
+```
 ![yW8hDQhnhM](https://github.com/user-attachments/assets/1c11e940-2da3-4d43-9453-cc1be06942c3)
 
 <img src="https://count.getloli.com/get/@IF_MemoAvatar_comfy?theme=moebooru" alt=":IF_MemoAvatar_comfy" />
