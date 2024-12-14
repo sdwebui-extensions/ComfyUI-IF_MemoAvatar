@@ -97,6 +97,9 @@ If you don't see a `models.json` or errors out create one yourself this is the c
   ]
 }
 ```
+and a `version.txt` containing 
+`0.7.3`
+
 ![yW8hDQhnhM](https://github.com/user-attachments/assets/1c11e940-2da3-4d43-9453-cc1be06942c3)
 
 <img src="https://count.getloli.com/get/@IF_MemoAvatar_comfy?theme=moebooru" alt=":IF_MemoAvatar_comfy" />
