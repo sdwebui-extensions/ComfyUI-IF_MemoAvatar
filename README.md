@@ -57,7 +57,11 @@ pip show xformers
 ```
 follow this guide to install a good comfyui environment if you don't see any version install the latest following this free guide
 
-https://ko-fi.com/post/Installing-Triton-and-Sage-Attention-Flash-Attenti-P5P8175434
+[Installing Triton and Sage Attention Flash Attention](https://ko-fi.com/post/Installing-Triton-and-Sage-Attention-Flash-Attenti-P5P8175434)
+
+
+[![Watch the video](https://img.youtube.com/vi/nSUGEdm2wU4/hqdefault.jpg)](https://www.youtube.com/watch?v=nSUGEdm2wU4)
+
 
 ### Model Files
 The models will automatically download to the following locations in your ComfyUI installation:
