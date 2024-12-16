@@ -121,12 +121,25 @@ class MemoModelManager:
             target_path = os.path.join(emotion2vec_path, file)
             if not os.path.exists(target_path):
                 try:
-                    hf_hub_download(
-                        repo_id="emotion2vec/emotion2vec_plus_large",
-                        filename=file,
-                        local_dir=emotion2vec_path,
-                        local_dir_use_symlinks=False
-                    )
+                    if file == "config.yaml":
+                        default_config = {
+                            "encoder_layers": 12,
+                            "encoder_embed_dim": 768,
+                            "encoder_ffn_embed_dim": 3072,
+                            "encoder_attention_heads": 12,
+                            "activation_fn": "gelu",
+                            "layer_norm_first": False
+                        }
+                        import yaml
+                        with open(target_path, 'w') as f:
+                            yaml.dump(default_config, f)
+                    else:
+                        hf_hub_download(
+                            repo_id="emotion2vec/emotion2vec_plus_large",
+                            filename=file,
+                            local_dir=emotion2vec_path,
+                            local_dir_use_symlinks=False
+                        )
                 except Exception as e:
                     logger.warning(f"Failed to download emotion2vec file {file}: {e}")
 

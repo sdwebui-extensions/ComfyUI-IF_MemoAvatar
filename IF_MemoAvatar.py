@@ -26,7 +26,7 @@ class IF_MemoAvatar:
         return {
             "required": {
                 "image": ("IMAGE",),
-                "audio": ("STRING", {"default": ""}),
+                "audio": ("AUDIO",),
                 "reference_net": ("MODEL",),
                 "diffusion_net": ("MODEL",),
                 "vae": ("VAE",),
@@ -80,10 +80,6 @@ class IF_MemoAvatar:
             num_init_past_frames = 2
             num_past_frames = 16
 
-            # Better error handling for audio
-            if "wav" not in audio.lower():
-                logger.warning("MEMO might not generate full-length video for non-wav audio file.")
-
             # Save input image temporarily
             temp_dir = folder_paths.get_temp_directory()
             temp_image = os.path.join(temp_dir, f"ref_image_{time.time()}.png")
@@ -108,131 +104,147 @@ class IF_MemoAvatar:
                 if os.path.exists(temp_image):
                     os.remove(temp_image)
     
-            # Set up audio cache directory
-            cache_dir = os.path.join(folder_paths.get_temp_directory(), "memo_audio_cache")
-            os.makedirs(cache_dir, exist_ok=True)
-
-            # Process audio path
-            input_audio_path = os.path.join(folder_paths.get_input_directory(), audio)
-            resampled_path = os.path.join(cache_dir, f"{os.path.splitext(os.path.basename(audio))[0]}-16k.wav")
-            resampled_path = resample_audio(input_audio_path, resampled_path)
-
-            # Process audio
-            audio_emb, audio_length = preprocess_audio(
-                wav_path=resampled_path,
-                num_generated_frames_per_clip=num_frames_per_clip,
-                fps=fps,
-                wav2vec_model=self.paths["wav2vec"],
-                vocal_separator_model=self.paths["vocal_separator"],
-                cache_dir=cache_dir,
-                device=str(self.device)
-            )
-
-            # Extract emotion 
-            audio_emotion, num_emotion_classes = extract_audio_emotion_labels(
-                model=self.paths["memo_base"],
-                wav_path=resampled_path,
-                emotion2vec_model=self.paths["emotion2vec"],
-                audio_length=audio_length,
-                device=str(self.device)
-            )
-
-            # Model optimizations
-            vae.requires_grad_(False).eval()
-            reference_net.requires_grad_(False).eval()
-            diffusion_net.requires_grad_(False).eval()
-            image_proj.requires_grad_(False).eval()
-            audio_proj.requires_grad_(False).eval()
-
-            # Enable memory efficient attention
-            if hasattr(torch.backends, 'xformers'):
-                reference_net.enable_xformers_memory_efficient_attention()
-                diffusion_net.enable_xformers_memory_efficient_attention()
-
-            # Create pipeline with optimizations
-            noise_scheduler = FlowMatchEulerDiscreteScheduler()
-            with torch.inference_mode():
-                pipeline = VideoPipeline(
-                    vae=vae,
-                    reference_net=reference_net,
-                    diffusion_net=diffusion_net,
-                    scheduler=noise_scheduler,
-                    image_proj=image_proj,
-                )
-                pipeline.to(device=self.device, dtype=self.dtype)
-
-            # Generate video frames with memory optimizations
-            video_frames = []
-            num_clips = audio_emb.shape[0] // num_frames_per_clip
-            generator = torch.Generator(device=self.device).manual_seed(seed)
+            # Save audio temporarily
+            temp_dir = folder_paths.get_temp_directory()
+            temp_audio = os.path.join(temp_dir, f"temp_audio_{time.time()}.wav")
             
-            for t in tqdm(range(num_clips), desc="Generating video clips"):
-                # Clear cache at the start of each iteration
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-                    
-                if len(video_frames) == 0:
-                    past_frames = pixel_values.repeat(num_init_past_frames, 1, 1, 1)
-                    past_frames = past_frames.to(dtype=pixel_values.dtype, device=pixel_values.device)
-                    pixel_values_ref_img = torch.cat([pixel_values, past_frames], dim=0)
-                else:
-                    past_frames = video_frames[-1][0]
-                    past_frames = past_frames.permute(1, 0, 2, 3)
-                    past_frames = past_frames[0 - num_past_frames:]
-                    past_frames = past_frames * 2.0 - 1.0
-                    past_frames = past_frames.to(dtype=pixel_values.dtype, device=pixel_values.device)
-                    pixel_values_ref_img = torch.cat([pixel_values, past_frames], dim=0)
-
-                pixel_values_ref_img = pixel_values_ref_img.unsqueeze(0)
+            try:
+                # Convert 3D tensor to 2D if necessary
+                waveform = audio["waveform"]
+                if waveform.ndim == 3:
+                    waveform = waveform.squeeze(0)  # Remove batch dimension
                 
-                # Process audio in smaller chunks if needed
-                audio_tensor = (
-                    audio_emb[
-                        t * num_frames_per_clip : min(
-                            (t + 1) * num_frames_per_clip, audio_emb.shape[0]
-                        )
-                    ]
-                    .unsqueeze(0)
-                    .to(device=audio_proj.device, dtype=audio_proj.dtype)
+                # Save the audio tensor to a temporary WAV file
+                torchaudio.save(temp_audio, waveform, audio["sample_rate"])
+                
+                # Set up audio cache directory
+                cache_dir = os.path.join(folder_paths.get_temp_directory(), "memo_audio_cache")
+                os.makedirs(cache_dir, exist_ok=True)
+
+                resampled_path = os.path.join(cache_dir, f"resampled_{time.time()}-16k.wav")
+                resampled_path = resample_audio(temp_audio, resampled_path)
+
+                # Process audio
+                audio_emb, audio_length = preprocess_audio(
+                    wav_path=resampled_path,
+                    num_generated_frames_per_clip=num_frames_per_clip,
+                    fps=fps,
+                    wav2vec_model=self.paths["wav2vec"],
+                    vocal_separator_model=self.paths["vocal_separator"],
+                    cache_dir=cache_dir,
+                    device=str(self.device)
                 )
-                
+
+                # Extract emotion 
+                audio_emotion, num_emotion_classes = extract_audio_emotion_labels(
+                    model=self.paths["memo_base"],
+                    wav_path=resampled_path,
+                    emotion2vec_model=self.paths["emotion2vec"],
+                    audio_length=audio_length,
+                    device=str(self.device)
+                )
+
+                # Model optimizations
+                vae.requires_grad_(False).eval()
+                reference_net.requires_grad_(False).eval()
+                diffusion_net.requires_grad_(False).eval()
+                image_proj.requires_grad_(False).eval()
+                audio_proj.requires_grad_(False).eval()
+
+                # Enable memory efficient attention
+                if hasattr(torch.backends, 'xformers'):
+                    reference_net.enable_xformers_memory_efficient_attention()
+                    diffusion_net.enable_xformers_memory_efficient_attention()
+
+                # Create pipeline with optimizations
+                noise_scheduler = FlowMatchEulerDiscreteScheduler()
                 with torch.inference_mode():
-                    audio_tensor = audio_proj(audio_tensor)
-
-                    audio_emotion_tensor = audio_emotion[
-                        t * num_frames_per_clip : min(
-                            (t + 1) * num_frames_per_clip, audio_emb.shape[0]
-                        )
-                    ]
-
-                    pipeline_output = pipeline(
-                        ref_image=pixel_values_ref_img,
-                        audio_tensor=audio_tensor,
-                        audio_emotion=audio_emotion_tensor,
-                        emotion_class_num=num_emotion_classes,
-                        face_emb=face_emb,
-                        width=resolution,
-                        height=resolution,
-                        video_length=num_frames_per_clip,
-                        num_inference_steps=inference_steps,
-                        guidance_scale=cfg_scale,
-                        generator=generator,
+                    pipeline = VideoPipeline(
+                        vae=vae,
+                        reference_net=reference_net,
+                        diffusion_net=diffusion_net,
+                        scheduler=noise_scheduler,
+                        image_proj=image_proj,
                     )
+                    pipeline.to(device=self.device, dtype=self.dtype)
 
-                video_frames.append(pipeline_output.videos)
+                # Generate video frames with memory optimizations
+                video_frames = []
+                num_clips = audio_emb.shape[0] // num_frames_per_clip
+                generator = torch.Generator(device=self.device).manual_seed(seed)
+                
+                for t in tqdm(range(num_clips), desc="Generating video clips"):
+                    # Clear cache at the start of each iteration
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                        
+                    if len(video_frames) == 0:
+                        past_frames = pixel_values.repeat(num_init_past_frames, 1, 1, 1)
+                        past_frames = past_frames.to(dtype=pixel_values.dtype, device=pixel_values.device)
+                        pixel_values_ref_img = torch.cat([pixel_values, past_frames], dim=0)
+                    else:
+                        past_frames = video_frames[-1][0]
+                        past_frames = past_frames.permute(1, 0, 2, 3)
+                        past_frames = past_frames[0 - num_past_frames:]
+                        past_frames = past_frames * 2.0 - 1.0
+                        past_frames = past_frames.to(dtype=pixel_values.dtype, device=pixel_values.device)
+                        pixel_values_ref_img = torch.cat([pixel_values, past_frames], dim=0)
 
-            video_frames = torch.cat(video_frames, dim=2)
-            video_frames = video_frames.squeeze(0)
-            video_frames = video_frames[:, :audio_length]
+                    pixel_values_ref_img = pixel_values_ref_img.unsqueeze(0)
+                    
+                    # Process audio in smaller chunks if needed
+                    audio_tensor = (
+                        audio_emb[
+                            t * num_frames_per_clip : min(
+                                (t + 1) * num_frames_per_clip, audio_emb.shape[0]
+                            )
+                        ]
+                        .unsqueeze(0)
+                        .to(device=audio_proj.device, dtype=audio_proj.dtype)
+                    )
+                    
+                    with torch.inference_mode():
+                        audio_tensor = audio_proj(audio_tensor)
 
-            # Save video
-            timestamp = time.strftime('%Y%m%d-%H%M%S')
-            video_name = f"{output_name}_{timestamp}.mp4"
-            output_dir = folder_paths.get_output_directory()
-            video_path = os.path.join(output_dir, video_name)
+                        audio_emotion_tensor = audio_emotion[
+                            t * num_frames_per_clip : min(
+                                (t + 1) * num_frames_per_clip, audio_emb.shape[0]
+                            )
+                        ]
 
-            tensor_to_video(video_frames, video_path, input_audio_path, fps=fps)
-            return (video_path, f"✅ Video saved as {video_name}")
+                        pipeline_output = pipeline(
+                            ref_image=pixel_values_ref_img,
+                            audio_tensor=audio_tensor,
+                            audio_emotion=audio_emotion_tensor,
+                            emotion_class_num=num_emotion_classes,
+                            face_emb=face_emb,
+                            width=resolution,
+                            height=resolution,
+                            video_length=num_frames_per_clip,
+                            num_inference_steps=inference_steps,
+                            guidance_scale=cfg_scale,
+                            generator=generator,
+                        )
+
+                    video_frames.append(pipeline_output.videos)
+
+                video_frames = torch.cat(video_frames, dim=2)
+                video_frames = video_frames.squeeze(0)
+                video_frames = video_frames[:, :audio_length]
+
+                # Save video
+                timestamp = time.strftime('%Y%m%d-%H%M%S')
+                video_name = f"{output_name}_{timestamp}.mp4"
+                output_dir = folder_paths.get_output_directory()
+                video_path = os.path.join(output_dir, video_name)
+
+                tensor_to_video(video_frames, video_path, temp_audio, fps=fps)
+                return (video_path, f"✅ Video saved as {video_name}")
+
+            finally:
+                # Clean up temporary files
+                if os.path.exists(temp_audio):
+                    os.remove(temp_audio)
 
         except Exception as e:
             import traceback

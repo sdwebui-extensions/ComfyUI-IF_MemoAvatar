@@ -23,7 +23,6 @@ from .memo_model_manager import MemoModelManager
 from .IF_MemoAvatar import IF_MemoAvatar
 from .IF_MemoCheckpointLoader import IF_MemoCheckpointLoader
 
-
 NODE_CLASS_MAPPINGS = {
     "IF_MemoAvatar": IF_MemoAvatar,
     "IF_MemoCheckpointLoader": IF_MemoCheckpointLoader,
@@ -37,8 +36,4 @@ NODE_DISPLAY_NAME_MAPPINGS = {
 # Define web directory relative to this file
 WEB_DIRECTORY = os.path.join(os.path.dirname(__file__), "web")
 
-# Register server routes
-def setup_js_web_routes(app):
-    setup_routes(app)  # Add our custom routes
-
-__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY", "setup_js_web_routes"]
+__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
