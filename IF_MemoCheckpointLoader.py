@@ -44,8 +44,10 @@ class IF_MemoCheckpointLoader:
             
             # Load VAE
             vae = AutoencoderKL.from_pretrained(
-                self.paths["vae"]
-            ).to(device=device, dtype=dtype)
+                self.paths["vae"],
+                use_safetensors=True,
+                torch_dtype=dtype
+            ).to(device=device)
             vae.requires_grad_(False)
             vae.eval()
 
