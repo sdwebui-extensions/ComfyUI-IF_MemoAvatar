@@ -1,4 +1,6 @@
 diffusers>=0.31.0
+numba
+librosa
 transformers>=4.46.3
 numpy>=1.26.4
 PyYAML>=6.0.1
