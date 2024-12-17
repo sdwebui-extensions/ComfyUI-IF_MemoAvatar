@@ -1,11 +1,10 @@
 [project]
 name = "comfyui_if_memoavatar"
 description = "ComfyUI MemoAvatar is a talking head avatar generator using Memory-Guided Diffusion for Expressive Talking Video Generation"
-version = "0.0.1"
+version = "0.0.2"
 license = { file = "LICENSE.txt" }
 dependencies = [
     "numba",
-    "git-lfs",
     "librosa",
     "diffusers>=0.31.0",
     "transformers>=4.46.3",
