@@ -40,6 +40,7 @@ class MemoModelManager:
         self._ensure_wav2vec_models()
         self._ensure_emotion2vec_models()
         self._ensure_emotion_classifier()
+        self._ensure_vae()
 
     def _ensure_face_analysis_models(self):
         """Ensure face analysis models are present"""
@@ -146,6 +147,36 @@ class MemoModelManager:
                 )
             except Exception as e:
                 logger.warning(f"Failed to download emotion classifier model: {e}")
+
+    def _ensure_vae(self):
+        """Ensure VAE model and config are present"""
+        os.makedirs(self.vae_path, exist_ok=True)
+        
+        # Check for model file
+        model_path = os.path.join(self.vae_path, "diffusion_pytorch_model.safetensors")
+        config_path = os.path.join(self.vae_path, "config.json")
+        
+        if not os.path.exists(model_path) or not os.path.exists(config_path):
+            try:
+                # Download model
+                if not os.path.exists(model_path):
+                    hf_hub_download(
+                        repo_id="stabilityai/sd-vae-ft-mse",
+                        filename="diffusion_pytorch_model.safetensors",
+                        local_dir=self.vae_path,
+                        local_dir_use_symlinks=False
+                    )
+                
+                # Download config
+                if not os.path.exists(config_path):
+                    hf_hub_download(
+                        repo_id="stabilityai/sd-vae-ft-mse",
+                        filename="config.json",
+                        local_dir=self.vae_path,
+                        local_dir_use_symlinks=False
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to download VAE files: {e}")
 
     def get_model_paths(self):
         """Return dictionary of model paths"""

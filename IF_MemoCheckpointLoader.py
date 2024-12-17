@@ -43,11 +43,20 @@ class IF_MemoCheckpointLoader:
             logger.info("Loading models")
             
             # Load VAE
-            vae = AutoencoderKL.from_pretrained(
-                self.paths["vae"],
-                use_safetensors=True,
-                torch_dtype=dtype
-            ).to(device=device)
+            try:
+                vae = AutoencoderKL.from_pretrained(
+                    self.paths["vae"],
+                    use_safetensors=True,
+                    torch_dtype=dtype
+                ).to(device=device)
+            except Exception as e:
+                # Fallback to downloading from HuggingFace if local load fails
+                logger.warning(f"Failed to load local VAE, attempting to download: {e}")
+                vae = AutoencoderKL.from_pretrained(
+                    "stabilityai/sd-vae-ft-mse",
+                    use_safetensors=True,
+                    torch_dtype=dtype
+                ).to(device=device)
             vae.requires_grad_(False)
             vae.eval()
 
