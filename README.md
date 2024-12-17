@@ -40,8 +40,8 @@ This is a ComfyUI implementation of MEMO (Memory-Guided Diffusion for Expressive
 
 ## Installation
 
-*** MUST HAVE GIT AND GIT LFS LIKE MENTIONED ON MY KO-FI GUIDE *** 
-***MAKE SURE YoU HAVE HF Token On Your environment VARIABLES***
+*** Xformers NOT REQUIRED BUT BETTER IF INSTALLED*** 
+*** MAKE SURE YoU HAVE HF Token On Your environment VARIABLES ***
 
 git clone the repo to your custom_nodes folder and then 
 ```bash
