@@ -7,7 +7,7 @@ from diffusers.utils import is_xformers_available
 from packaging import version
 from safetensors.torch import load_file
 
-from memo.models.unet_2d_condition import UNet2DConditionModel 
+from memo.models.unet_2d_condition import UNet2DConditionModel
 from memo.models.unet_3d import UNet3DConditionModel
 from memo.models.image_proj import ImageProjModel
 from memo.models.audio_proj import AudioProjModel
@@ -39,9 +39,9 @@ class IF_MemoCheckpointLoader:
         try:
             device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
             dtype = torch.float16 if str(device) == "cuda" else torch.float32
-            
+
             logger.info("Loading models")
-            
+
             # Load VAE
             try:
                 vae = AutoencoderKL.from_pretrained(
@@ -95,7 +95,7 @@ class IF_MemoCheckpointLoader:
             audio_proj.requires_grad_(False)
             audio_proj.eval()
 
-            # Enable xformers
+            # Enable xformers (Optional)
             if enable_xformers and is_xformers_available():
                 try:
                     import xformers
@@ -105,7 +105,9 @@ class IF_MemoCheckpointLoader:
                     reference_net.enable_xformers_memory_efficient_attention()
                     diffusion_net.enable_xformers_memory_efficient_attention()
                 except Exception as e:
-                    logger.warning(f"Could not enable xformers: {e}")
+                    logger.warning(f"Could not enable xformers: {e}. Proceeding without xformers.")
+            else:
+                logger.info("Xformers is not enabled or not available. Proceeding without xformers.")
 
             # Move models to device
             for model in [reference_net, diffusion_net, image_proj, audio_proj]:
@@ -114,7 +116,7 @@ class IF_MemoCheckpointLoader:
             # Load emotion classifier
             emotion_classifier = AudioEmotionClassifierModel()
             emotion_classifier_path = os.path.join(
-                self.paths["memo_base"], 
+                self.paths["memo_base"],
                 "misc/audio_emotion_classifier/diffusion_pytorch_model.safetensors"
             )
             emotion_classifier.load_state_dict(load_file(emotion_classifier_path))

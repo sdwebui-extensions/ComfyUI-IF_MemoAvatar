@@ -7,11 +7,11 @@ import logging
 from tqdm import tqdm
 import time
 from contextlib import contextmanager
-from packaging import version
 
 import folder_paths
 import comfy.model_management
 from diffusers import FlowMatchEulerDiscreteScheduler
+from diffusers.utils import is_xformers_available
 
 from memo.pipelines.video_pipeline import VideoPipeline
 from memo.utils.audio_utils import extract_audio_emotion_labels, preprocess_audio, resample_audio
@@ -57,17 +57,17 @@ class IF_MemoAvatar:
         self.model_manager = MemoModelManager()
         self.paths = self.model_manager.get_model_paths()
         
-        # Verify xformers availability
-        if hasattr(torch.backends, 'xformers'):
-            import xformers
-            xformers_version = version.parse(xformers.__version__)
-            if xformers_version == version.parse("0.0.16"):
-                logger.warning("xFormers 0.0.16 may have issues. Consider updating to 0.0.17+")
 
     def generate(self, image, audio, reference_net, diffusion_net, vae, image_proj, audio_proj, 
                 emotion_classifier, resolution=512, num_frames_per_clip=16, fps=30, 
                 inference_steps=20, cfg_scale=3.5, seed=42, output_name="memo_video"):
         try:
+            # Save video
+            timestamp = time.strftime('%Y%m%d-%H%M%S')
+            video_name = f"{output_name}_{timestamp}.mp4"
+            output_dir = folder_paths.get_output_directory()
+            video_path = os.path.join(output_dir, video_name)
+
             # Memory optimizations
             torch.cuda.empty_cache()
             if hasattr(torch.cuda, 'amp') and hasattr(torch.cuda.amp, 'autocast'):
@@ -151,10 +151,17 @@ class IF_MemoAvatar:
                 image_proj.requires_grad_(False).eval()
                 audio_proj.requires_grad_(False).eval()
 
-                # Enable memory efficient attention
-                if hasattr(torch.backends, 'xformers'):
-                    reference_net.enable_xformers_memory_efficient_attention()
-                    diffusion_net.enable_xformers_memory_efficient_attention()
+                # Enable memory efficient attention (Optional)
+                if is_xformers_available():
+                    try:
+                        reference_net.enable_xformers_memory_efficient_attention()
+                        diffusion_net.enable_xformers_memory_efficient_attention()
+                    except Exception as e:
+                        logger.warning(
+                            f"Could not enable memory efficient attention for xformers: {e}."
+                            "Do you have xformers installed? "
+                            "If you do, please check your xformers installation"
+                        )
 
                 # Create pipeline with optimizations
                 noise_scheduler = FlowMatchEulerDiscreteScheduler()
@@ -232,11 +239,6 @@ class IF_MemoAvatar:
                 video_frames = video_frames.squeeze(0)
                 video_frames = video_frames[:, :audio_length]
 
-                # Save video
-                timestamp = time.strftime('%Y%m%d-%H%M%S')
-                video_name = f"{output_name}_{timestamp}.mp4"
-                output_dir = folder_paths.get_output_directory()
-                video_path = os.path.join(output_dir, video_name)
 
                 tensor_to_video(video_frames, video_path, temp_audio, fps=fps)
                 return (video_path, f"✅ Video saved as {video_name}")
@@ -249,7 +251,7 @@ class IF_MemoAvatar:
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return (folder_paths.get_output_directory(), f"❌ Error: {str(e)}")
+            return ("", f"❌ Error: {str(e)}")
 
 # Node mappings
 NODE_CLASS_MAPPINGS = {
