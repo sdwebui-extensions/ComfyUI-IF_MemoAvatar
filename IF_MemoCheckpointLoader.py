@@ -1,3 +1,4 @@
+#IF_MemoCheckpointLoader.py
 import os
 import torch
 import folder_paths
@@ -6,6 +7,7 @@ from diffusers import AutoencoderKL
 from diffusers.utils import is_xformers_available
 from packaging import version
 from safetensors.torch import load_file
+from huggingface_hub import hf_hub_download
 
 from memo.models.unet_2d_condition import UNet2DConditionModel
 from memo.models.unet_3d import UNet3DConditionModel
@@ -42,7 +44,20 @@ class IF_MemoCheckpointLoader:
 
             logger.info("Loading models")
 
-            # Load VAE
+            # Fallback download function
+            def fallback_download(repo_id, filename, local_dir):
+                try:
+                    return hf_hub_download(
+                        repo_id=repo_id,
+                        filename=filename,
+                        local_dir=local_dir,
+                        local_dir_use_symlinks=False
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to download {filename} from {repo_id}: {e}")
+                    return None
+
+            # Load VAE with multiple fallback strategies
             try:
                 vae = AutoencoderKL.from_pretrained(
                     self.paths["vae"],
@@ -50,15 +65,17 @@ class IF_MemoCheckpointLoader:
                     torch_dtype=dtype
                 ).to(device=device)
             except Exception as e:
-                # Fallback to downloading from HuggingFace if local load fails
-                logger.warning(f"Failed to load local VAE, attempting to download: {e}")
+                logger.warning(f"Local VAE load failed: {e}. Attempting download.")
+                fallback_download(
+                    "stabilityai/sd-vae-ft-mse", 
+                    "diffusion_pytorch_model.safetensors", 
+                    self.paths["vae"]
+                )
                 vae = AutoencoderKL.from_pretrained(
                     "stabilityai/sd-vae-ft-mse",
                     use_safetensors=True,
                     torch_dtype=dtype
                 ).to(device=device)
-            vae.requires_grad_(False)
-            vae.eval()
 
             # Load reference net
             reference_net = UNet2DConditionModel.from_pretrained(
@@ -127,7 +144,7 @@ class IF_MemoCheckpointLoader:
             return (reference_net, diffusion_net, vae, image_proj, audio_proj, emotion_classifier)
 
         except Exception as e:
-            logger.error(f"Error loading models: {e}")
+            logger.error(f"Comprehensive model loading error: {e}")
             import traceback
             traceback.print_exc()
             raise RuntimeError(f"Failed to load models: {str(e)}")

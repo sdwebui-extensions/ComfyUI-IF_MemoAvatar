@@ -14,6 +14,7 @@ from einops import rearrange
 from funasr.download.download_from_hub import download_model
 from funasr.models.emotion2vec.model import Emotion2vec
 from transformers import Wav2Vec2FeatureExtractor
+from safetensors.torch import load_file
 
 from memo.models.emotion_classifier import AudioEmotionClassifierModel
 from memo.models.wav2vec import Wav2VecModel
@@ -157,17 +158,6 @@ def extract_audio_emotion_labels(
 ):
     """
     Extract audio emotion labels from an audio file.
-
-    Args:
-        model (str): Path to the MEMO model.
-        wav_path (str): Path to the input audio file.
-        emotion2vec_model (str): Path to the Emotion2vec model.
-        audio_length (int): Target length for interpolated emotion labels.
-        sample_rate (int, optional): Sample rate of the input audio. Default is 16000.
-        device (str, optional): Device to use ('cuda' or 'cpu'). Default is "cuda".
-
-    Returns:
-        torch.Tensor: Processed emotion labels with shape matching the target audio length.
     """
     # Load models
     logger.info("Downloading emotion2vec models from modelscope")
@@ -186,11 +176,13 @@ def extract_audio_emotion_labels(
     )
     emotion_model.eval()
 
-    classifier = AudioEmotionClassifierModel.from_pretrained(
+    # Create and load emotion classifier directly
+    classifier = AudioEmotionClassifierModel().to(device=device)
+    emotion_classifier_path = os.path.join(
         model,
-        subfolder="misc/audio_emotion_classifier",
-        use_safetensors=True,
-    ).to(device=device)
+        "misc/audio_emotion_classifier/diffusion_pytorch_model.safetensors"
+    )
+    classifier.load_state_dict(load_file(emotion_classifier_path))
     classifier.eval()
 
     # Load audio

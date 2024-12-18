@@ -1,3 +1,4 @@
+#IF_MemoAvatar.py
 import os
 import torch
 import numpy as np
@@ -96,9 +97,9 @@ class IF_MemoAvatar:
                 print(f"face_models path: {face_models_path}")
                 # Process image with our models
                 pixel_values, face_emb = preprocess_image(
-                    face_analysis_model=self.paths["face_models"],
-                    image_path=temp_image,
-                    image_size=resolution,
+                    self.paths["face_models"],  # face_analysis_model
+                    temp_image,                 # image_path
+                    resolution                  # image_size
                 )
             finally:
                 if os.path.exists(temp_image):
