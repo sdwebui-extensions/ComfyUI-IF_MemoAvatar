@@ -38,6 +38,10 @@ This is a ComfyUI implementation of MEMO (Memory-Guided Diffusion for Expressive
 - High-quality video output
 ![thorium_XMBCG9kbGn](https://github.com/user-attachments/assets/7d19178f-870c-429b-988e-1335fe1ba8f9)
 
+
+https://github.com/user-attachments/assets/bfbf896d-a609-4e0f-8ed3-16ec48f8d85a
+
+
 ## Installation
 
 *** Xformers NOT REQUIRED BUT BETTER IF INSTALLED*** 
