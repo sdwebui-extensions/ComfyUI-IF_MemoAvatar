@@ -4,6 +4,9 @@ description = "ComfyUI MemoAvatar is a talking head avatar generator using Memor
 version = "0.0.2"
 license = { file = "LICENSE.txt" }
 dependencies = [
+    "audio-separator",
+    "albumentations",
+    "modelscope",
     "numba",
     "librosa",
     "diffusers>=0.31.0",
