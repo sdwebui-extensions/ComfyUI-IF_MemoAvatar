@@ -1,6 +1,6 @@
 [project]
 name = "comfyui_if_memoavatar"
-description = "ComfyUI MemoAvatar"
+description = "Talking avatars MemoAvatar Memory-Guided Diffusion for Expressive Talking Video Generation"
 version = "0.0.3"
 license = { file = "MIT License" }
 dependencies = [
