@@ -3,18 +3,8 @@ import os
 import torch
 import folder_paths
 import logging
-from diffusers import AutoencoderKL
-from diffusers.utils import is_xformers_available
 from packaging import version
 from safetensors.torch import load_file
-from huggingface_hub import hf_hub_download
-
-from memo.models.unet_2d_condition import UNet2DConditionModel
-from memo.models.unet_3d import UNet3DConditionModel
-from memo.models.image_proj import ImageProjModel
-from memo.models.audio_proj import AudioProjModel
-from memo.models.emotion_classifier import AudioEmotionClassifierModel
-from memo_model_manager import MemoModelManager
 
 logger = logging.getLogger("memo")
 
@@ -34,10 +24,19 @@ class IF_MemoCheckpointLoader:
 
     def __init__(self):
         # Initialize model manager to set up all paths and auxiliary models
+        from memo_model_manager import MemoModelManager
         self.model_manager = MemoModelManager()
         self.paths = self.model_manager.get_model_paths()
 
     def load_checkpoint(self, enable_xformers=True):
+        from diffusers import AutoencoderKL
+        from diffusers.utils import is_xformers_available
+        from huggingface_hub import hf_hub_download
+        from memo.models.unet_2d_condition import UNet2DConditionModel
+        from memo.models.unet_3d import UNet3DConditionModel
+        from memo.models.image_proj import ImageProjModel
+        from memo.models.audio_proj import AudioProjModel
+        from memo.models.emotion_classifier import AudioEmotionClassifierModel
         try:
             device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
             dtype = torch.float16 if str(device) == "cuda" else torch.float32

@@ -3,8 +3,6 @@ import os
 import logging
 import json
 import shutil
-from huggingface_hub import hf_hub_download
-from modelscope import snapshot_download
 import folder_paths
 
 logger = logging.getLogger("memo")
@@ -12,6 +10,7 @@ logger = logging.getLogger("memo")
 class MemoModelManager:
     def __init__(self):
         self.models_base = folder_paths.models_dir
+        self.models_cache = folder_paths.cache_dir
         self._setup_paths()
         self._ensure_model_structure()
 
@@ -21,7 +20,11 @@ class MemoModelManager:
             "memo_base": os.path.join(self.models_base, "checkpoints", "memo"),
             "wav2vec": os.path.join(self.models_base, "wav2vec", "facebook", "wav2vec2-base-960h"),
             "emotion2vec": os.path.join(self.models_base, "emotion2vec", "iic", "emotion2vec_plus_large"),
-            "vae": os.path.join(self.models_base, "vae", "stabilityai", "sd-vae-ft-mse")
+            "vae": os.path.join(self.models_base, "vae", "stabilityai", "sd-vae-ft-mse"),
+            "cache_memo_base": os.path.join(self.models_cache, "checkpoints", "memo"),
+            "cache_wav2vec": os.path.join(self.models_cache, "hallo/wav2vec", "wav2vec2-base-960h"),
+            "cache_emotion2vec": os.path.join(self.models_cache, "emotion2vec", "iic", "emotion2vec_plus_large"),
+            "cache_vae": os.path.join(self.models_cache, "sd-vae-ft-mse"),
         }
 
         # Create directories
@@ -33,18 +36,24 @@ class MemoModelManager:
                       "misc/audio_emotion_classifier", "misc/face_analysis", "misc/vocal_separator"]:
             os.makedirs(os.path.join(self.paths["memo_base"], subdir), exist_ok=True)
 
-    def _direct_download(self, repo_id, filename, target_path, force=False):
+    def _direct_download(self, repo_id, filename, target_path, force=False, cache_path=None):
         """Download directly to target path without extra nesting"""
         try:
             if not force and os.path.exists(target_path):
                 return target_path
-
-            download_path = hf_hub_download(
-                repo_id=repo_id,
-                filename=filename,
-                local_dir=os.path.dirname(target_path),
-                local_dir_use_symlinks=False
-            )
+            if not os.path.exists(target_path):
+                if cache_path is not None and os.path.exists(cache_path):
+                    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                    shutil.copyfile(cache_path, target_path)
+                    download_path = target_path
+                else:
+                    from huggingface_hub import hf_hub_download
+                    download_path = hf_hub_download(
+                        repo_id=repo_id,
+                        filename=filename,
+                        local_dir=os.path.dirname(target_path),
+                        local_dir_use_symlinks=False
+                    )
             
             # Move if downloaded to wrong location
             if download_path != target_path:
@@ -59,6 +68,7 @@ class MemoModelManager:
         """Setup face analysis models with correct structure"""
         face_dir = os.path.join(self.paths["memo_base"], "misc", "face_analysis")
         models_dir = os.path.join(face_dir, "models")  # Create a models subdirectory
+        cache_models_dir = os.path.join(self.paths["cache_memo_base"], "misc", "face_analysis", "models")
         os.makedirs(models_dir, exist_ok=True)
         
         # Create models.json
@@ -94,7 +104,8 @@ class MemoModelManager:
                 self._direct_download(
                     "memoavatar/memo",
                     f"misc/face_analysis/models/{model_file}",
-                    target_path
+                    target_path,
+                    cache_path=os.path.join(cache_models_dir, model_file),
                 )
                 # Create symlink in parent directory for compatibility
                 parent_target = os.path.join(face_dir, model_file)
@@ -114,9 +125,10 @@ class MemoModelManager:
         # Set up face analysis and environment variables first
         face_dir = self._setup_face_analysis()
         os.environ["MEMO_FACE_MODELS"] = face_dir
-        os.environ["MEMO_VOCAL_MODEL"] = os.path.join(
-            self.paths["memo_base"], "misc/vocal_separator/Kim_Vocal_2.onnx"
-        )
+        os.environ["MEMO_VOCAL_MODEL"] = os.path.join(self.paths["memo_base"], "misc/vocal_separator/Kim_Vocal_2.onnx")
+        if not os.path.exists(os.path.join(self.paths["memo_base"], "misc/vocal_separator/Kim_Vocal_2.onnx")):
+            if os.path.exists(os.path.join(self.paths["cache_memo_base"], "misc/vocal_separator/Kim_Vocal_2.onnx")):
+                os.environ["MEMO_VOCAL_MODEL"] = os.path.join(self.paths["cache_memo_base"], "misc/vocal_separator/Kim_Vocal_2.onnx")
 
         # Download memo components
         components = {
@@ -128,25 +140,29 @@ class MemoModelManager:
 
         for component, files in components.items():
             component_dir = os.path.join(self.paths["memo_base"], component)
+            cache_component_dir = os.path.join(self.paths["cache_memo_base"], component)
             for file in files:
                 self._direct_download(
                     "memoavatar/memo",
                     f"{component}/{file}",
-                    os.path.join(component_dir, file)
+                    os.path.join(component_dir, file),
+                    cache_path = os.path.join(cache_component_dir, file),
                 )
         
         # Download vocal separator
         self._direct_download(
             "memoavatar/memo",
             "misc/vocal_separator/Kim_Vocal_2.onnx",
-            os.path.join(self.paths["memo_base"], "misc/vocal_separator/Kim_Vocal_2.onnx")
+            os.path.join(self.paths["memo_base"], "misc/vocal_separator/Kim_Vocal_2.onnx"),
+            cache_path=os.path.join(self.paths["cache_memo_base"], "misc/vocal_separator/Kim_Vocal_2.onnx"),
         )
 
         # Download emotion classifier
         self._direct_download(
             "memoavatar/memo",
             "misc/audio_emotion_classifier/diffusion_pytorch_model.safetensors",
-            os.path.join(self.paths["memo_base"], "misc/audio_emotion_classifier/diffusion_pytorch_model.safetensors")
+            os.path.join(self.paths["memo_base"], "misc/audio_emotion_classifier/diffusion_pytorch_model.safetensors"),
+            cache_path=os.path.join(self.paths["cache_memo_base"], "misc/audio_emotion_classifier/diffusion_pytorch_model.safetensors"),
         )
 
         # Download wav2vec files
@@ -155,15 +171,22 @@ class MemoModelManager:
             self._direct_download(
                 "facebook/wav2vec2-base-960h",
                 file, 
-                os.path.join(self.paths["wav2vec"], file)
+                os.path.join(self.paths["wav2vec"], file),
+                cache_path=os.path.join(self.paths["cache_wav2vec"], file),
             )
 
         # Download emotion2vec
         try:
-            snapshot_download(
-                "iic/emotion2vec_plus_large",
-                local_dir=self.paths["emotion2vec"]
-            )
+            if not os.path.exists(self.paths["emotion2vec"]):
+                os.makedirs(self.paths["emotion2vec"], exist_ok=True)
+                if os.path.exists(self.paths["cache_emotion2vec"]):
+                    os.system(f"cp -rf {self.paths['cache_emotion2vec']} {self.paths['emotion2vec']}")
+                else:
+                    from modelscope import snapshot_download
+                    snapshot_download(
+                        "iic/emotion2vec_plus_large",
+                        local_dir=self.paths["emotion2vec"]
+                    )
         except Exception as e:
             logger.warning(f"Failed to download emotion2vec model: {e}")
 
@@ -172,7 +195,8 @@ class MemoModelManager:
             self._direct_download(
                 "stabilityai/sd-vae-ft-mse",
                 file,
-                os.path.join(self.paths["vae"], file)
+                os.path.join(self.paths["vae"], file),
+                cache_path=os.path.join(self.paths["cache_vae"], file),
             )
 
     def get_model_paths(self):

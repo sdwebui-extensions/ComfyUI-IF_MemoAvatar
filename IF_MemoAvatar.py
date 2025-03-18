@@ -11,13 +11,6 @@ from contextlib import contextmanager
 
 import folder_paths
 import comfy.model_management
-from diffusers import FlowMatchEulerDiscreteScheduler
-from diffusers.utils import is_xformers_available
-
-from memo.pipelines.video_pipeline import VideoPipeline
-from memo.utils.audio_utils import extract_audio_emotion_labels, preprocess_audio, resample_audio
-from memo.utils.vision_utils import preprocess_image, tensor_to_video
-from memo_model_manager import MemoModelManager
 
 logger = logging.getLogger("memo")
 
@@ -50,6 +43,7 @@ class IF_MemoAvatar:
     CATEGORY = "ImpactFrames💥🎞️/MemoAvatar"
 
     def __init__(self):
+        from memo_model_manager import MemoModelManager
         self.device = comfy.model_management.get_torch_device()
         # Use bfloat16 if available, fallback to float16
         self.dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16
@@ -62,6 +56,8 @@ class IF_MemoAvatar:
     def generate(self, image, audio, reference_net, diffusion_net, vae, image_proj, audio_proj, 
                 emotion_classifier, resolution=512, num_frames_per_clip=16, fps=30, 
                 inference_steps=20, cfg_scale=3.5, seed=42, output_name="memo_video"):
+        from memo.utils.audio_utils import extract_audio_emotion_labels, preprocess_audio, resample_audio
+        from memo.utils.vision_utils import preprocess_image, tensor_to_video
         try:
             # Save video
             timestamp = time.strftime('%Y%m%d-%H%M%S')
@@ -153,6 +149,7 @@ class IF_MemoAvatar:
                 audio_proj.requires_grad_(False).eval()
 
                 # Enable memory efficient attention (Optional)
+                from diffusers.utils import is_xformers_available
                 if is_xformers_available():
                     try:
                         reference_net.enable_xformers_memory_efficient_attention()
@@ -165,7 +162,9 @@ class IF_MemoAvatar:
                         )
 
                 # Create pipeline with optimizations
+                from diffusers import FlowMatchEulerDiscreteScheduler
                 noise_scheduler = FlowMatchEulerDiscreteScheduler()
+                from memo.pipelines.video_pipeline import VideoPipeline
                 with torch.inference_mode():
                     pipeline = VideoPipeline(
                         vae=vae,
